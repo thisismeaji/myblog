@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -29,6 +29,8 @@ import {
   AlignRight,
   Bold,
   CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
   CheckSquare,
   Code,
   Code2,
@@ -47,7 +49,9 @@ import {
   Pilcrow,
   Quote,
   Redo2,
+  Save,
   Search,
+  Send,
   Settings,
   Strikethrough,
   TableIcon,
@@ -417,9 +421,135 @@ export function PostEditor() {
   const [featuredImage, setFeaturedImage] = useState<string | null>(null);
   const [htmlDraft, setHtmlDraft] = useState(initialContent);
   const [linkUrl, setLinkUrl] = useState("");
+  const [toolbarScrollState, setToolbarScrollState] = useState({
+    canScrollLeft: false,
+    canScrollRight: false,
+    progress: 0,
+  });
   const [slashMenu, setSlashMenu] =
     useState<SlashMenuState>(emptySlashMenu);
   const featuredImageInputRef = useRef<HTMLInputElement>(null);
+  const toolbarScrollRef = useRef<HTMLDivElement>(null);
+  const toolbarDragRef = useRef({
+    isDragging: false,
+    didDrag: false,
+    startX: 0,
+    scrollLeft: 0,
+  });
+
+  const updateToolbarScrollState = useCallback(() => {
+    const toolbar = toolbarScrollRef.current;
+
+    if (!toolbar) {
+      return;
+    }
+
+    const maxScrollLeft = toolbar.scrollWidth - toolbar.clientWidth;
+
+    setToolbarScrollState({
+      canScrollLeft: toolbar.scrollLeft > 1,
+      canScrollRight: toolbar.scrollLeft < maxScrollLeft - 1,
+      progress: maxScrollLeft > 0 ? toolbar.scrollLeft / maxScrollLeft : 0,
+    });
+  }, []);
+
+  useEffect(() => {
+    updateToolbarScrollState();
+    window.addEventListener("resize", updateToolbarScrollState);
+
+    return () => {
+      window.removeEventListener("resize", updateToolbarScrollState);
+    };
+  }, [updateToolbarScrollState]);
+
+  function scrollToolbar(direction: "left" | "right") {
+    toolbarScrollRef.current?.scrollBy({
+      left: direction === "left" ? -180 : 180,
+      behavior: "smooth",
+    });
+  }
+
+  function handleToolbarWheel(event: React.WheelEvent<HTMLDivElement>) {
+    const toolbar = event.currentTarget;
+
+    if (toolbar.scrollWidth <= toolbar.clientWidth) {
+      return;
+    }
+
+    const horizontalDelta =
+      Math.abs(event.deltaX) > Math.abs(event.deltaY)
+        ? event.deltaX
+        : event.deltaY;
+
+    if (horizontalDelta === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    toolbar.scrollLeft += horizontalDelta;
+    updateToolbarScrollState();
+  }
+
+  function handleToolbarPointerDown(
+    event: React.PointerEvent<HTMLDivElement>
+  ) {
+    const toolbar = event.currentTarget;
+
+    if (toolbar.scrollWidth <= toolbar.clientWidth) {
+      return;
+    }
+
+    toolbarDragRef.current = {
+      isDragging: true,
+      didDrag: false,
+      startX: event.clientX,
+      scrollLeft: toolbar.scrollLeft,
+    };
+    toolbar.setPointerCapture(event.pointerId);
+  }
+
+  function handleToolbarPointerMove(
+    event: React.PointerEvent<HTMLDivElement>
+  ) {
+    const toolbar = event.currentTarget;
+    const drag = toolbarDragRef.current;
+
+    if (!drag.isDragging) {
+      return;
+    }
+
+    const deltaX = event.clientX - drag.startX;
+
+    if (Math.abs(deltaX) > 4) {
+      drag.didDrag = true;
+    }
+
+    if (drag.didDrag) {
+      event.preventDefault();
+      toolbar.scrollLeft = drag.scrollLeft - deltaX;
+      updateToolbarScrollState();
+    }
+  }
+
+  function handleToolbarPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    const toolbar = event.currentTarget;
+
+    toolbarDragRef.current.isDragging = false;
+
+    if (toolbar.hasPointerCapture(event.pointerId)) {
+      toolbar.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function handleToolbarClickCapture(event: React.MouseEvent<HTMLDivElement>) {
+    if (!toolbarDragRef.current.didDrag) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    toolbarDragRef.current.didDrag = false;
+  }
 
   const filteredSlashCommands = useMemo(() => {
     const query = slashMenu.query.toLowerCase().trim();
@@ -533,7 +663,7 @@ export function PostEditor() {
     editorProps: {
       attributes: {
         class:
-          "min-h-full w-full max-w-none flex-1 px-4 pt-8 pb-40 text-base leading-7 outline-none sm:px-8 lg:px-16 lg:pt-10 lg:pb-48 [&>*]:m-0 [&>*:not(:first-child)]:mt-5 [&_.ProseMirror-selectednode]:outline-none [&_blockquote]:mt-6 [&_blockquote]:border-l-2 [&_blockquote]:pl-6 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_h2]:mt-8 [&_h2]:scroll-m-20 [&_h2]:border-b [&_h2]:pb-2 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:leading-snug [&_h3]:mt-7 [&_h3]:scroll-m-20 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:leading-snug [&_h4]:mt-6 [&_h4]:scroll-m-20 [&_h4]:text-lg [&_h4]:font-semibold [&_h4]:leading-snug [&_h5]:mt-5 [&_h5]:scroll-m-20 [&_h5]:text-base [&_h5]:font-semibold [&_h5]:leading-snug [&_img]:my-6 [&_img]:h-auto [&_img]:w-full [&_li]:mt-2 [&_li]:leading-7 [&_ol]:my-6 [&_ol]:ml-6 [&_ol]:list-decimal [&_p]:leading-7 [&_table]:my-6 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:bg-muted [&_th]:p-2 [&_ul[data-type=taskList]]:ml-0 [&_ul[data-type=taskList]]:list-none [&_ul[data-type=taskList]]:pl-0 [&_ul]:my-6 [&_ul]:ml-6 [&_ul]:list-disc",
+          "min-h-full w-full max-w-none flex-1 px-6 pt-10 pb-48 text-base leading-7 outline-none [&>*]:m-0 [&>*:not(:first-child)]:mt-5 [&_.ProseMirror-selectednode]:outline-none [&_blockquote]:mt-6 [&_blockquote]:border-l-2 [&_blockquote]:pl-6 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_h2]:mt-8 [&_h2]:scroll-m-20 [&_h2]:border-b [&_h2]:pb-2 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:leading-snug [&_h3]:mt-7 [&_h3]:scroll-m-20 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:leading-snug [&_h4]:mt-6 [&_h4]:scroll-m-20 [&_h4]:text-lg [&_h4]:font-semibold [&_h4]:leading-snug [&_h5]:mt-5 [&_h5]:scroll-m-20 [&_h5]:text-base [&_h5]:font-semibold [&_h5]:leading-snug [&_img]:my-6 [&_img]:h-auto [&_img]:w-full [&_li]:mt-2 [&_li]:leading-7 [&_ol]:my-6 [&_ol]:ml-6 [&_ol]:list-decimal [&_p]:leading-7 [&_table]:my-6 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:bg-muted [&_th]:p-2 [&_ul[data-type=taskList]]:ml-0 [&_ul[data-type=taskList]]:list-none [&_ul[data-type=taskList]]:pl-0 [&_ul]:my-6 [&_ul]:ml-6 [&_ul]:list-disc",
       },
     },
     onUpdate: ({ editor: currentEditor }) => {
@@ -705,7 +835,7 @@ export function PostEditor() {
     <SidebarProvider className="h-screen min-h-0 overflow-hidden">
       <Sidebar
         collapsible="none"
-        className="hidden h-screen w-80 border-r px-4 pt-8 pb-4 lg:flex"
+        className="hidden h-screen w-80 border-r px-4 pt-8 pb-4 min-[1400px]:flex"
       >
         <SidebarContent>
           <SidebarGroup className="p-1">
@@ -766,87 +896,108 @@ export function PostEditor() {
       </Sidebar>
 
       <SidebarInset className="min-h-0 min-w-0 bg-muted/30">
-        <div className="flex h-screen min-h-0 flex-col gap-4 overflow-hidden p-3 sm:p-4 lg:p-6">
+        <div className="flex h-screen min-h-0 flex-col gap-4 overflow-hidden p-4 pb-24">
           <section className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 min-w-0 flex-col gap-4">
-            <div className="z-30 grid flex-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 bg-transparent p-1 lg:flex lg:justify-center">
-              <div className="lg:hidden">
-                <Sheet>
-                <SheetTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="lg:hidden"
-                    >
-                      <Search />
-                      SEO
-                    </Button>
-                  }
-                />
-                <SheetContent side="left" className="w-80 overflow-y-auto p-4 pt-8">
-                  <SheetHeader className="sr-only">
-                    <SheetTitle>SEO</SheetTitle>
-                  </SheetHeader>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="mobile-title-tags">Title Tags</Label>
-                      <SidebarInput
-                        id="mobile-title-tags"
-                        placeholder="Judul untuk search result"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="mobile-seo-description">
-                        Meta Description
-                      </Label>
-                      <Textarea
-                        id="mobile-seo-description"
-                        placeholder="Ringkasan untuk hasil pencarian"
-                        className="min-h-24 resize-y bg-background"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Schema</Label>
-                      <Select defaultValue="article">
-                        <SelectTrigger className="w-full bg-background shadow-none">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="article">Article</SelectItem>
-                          <SelectItem value="blog-posting">
-                            Blog Posting
-                          </SelectItem>
-                          <SelectItem value="news-article">
-                            News Article
-                          </SelectItem>
-                          <SelectItem value="how-to">How To</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="mobile-canonical-url">Canonical URL</Label>
-                      <SidebarInput
-                        id="mobile-canonical-url"
-                        value={`/dashboard/post/${permalink}`}
-                        readOnly
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Jumlah Kata</Label>
-                      <div className="flex h-8 items-center rounded-md border bg-background px-2.5 text-sm">
-                        {wordCount} kata
+            <div className="z-30 grid flex-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 bg-transparent p-1">
+              <div className="flex items-center gap-2">
+                <div className="min-[1400px]:hidden">
+                  <Sheet>
+                  <SheetTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="min-[1400px]:hidden"
+                      >
+                        <Search />
+                        SEO
+                      </Button>
+                    }
+                  />
+                  <SheetContent side="left" className="w-80 overflow-y-auto p-4 pt-8">
+                    <SheetHeader className="sr-only">
+                      <SheetTitle>SEO</SheetTitle>
+                    </SheetHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="mobile-title-tags">Title Tags</Label>
+                        <SidebarInput
+                          id="mobile-title-tags"
+                          placeholder="Judul untuk search result"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="mobile-seo-description">
+                          Meta Description
+                        </Label>
+                        <Textarea
+                          id="mobile-seo-description"
+                          placeholder="Ringkasan untuk hasil pencarian"
+                          className="min-h-24 resize-y bg-background"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Schema</Label>
+                        <Select defaultValue="article">
+                          <SelectTrigger className="w-full bg-background shadow-none">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="article">Article</SelectItem>
+                            <SelectItem value="blog-posting">
+                              Blog Posting
+                            </SelectItem>
+                            <SelectItem value="news-article">
+                              News Article
+                            </SelectItem>
+                            <SelectItem value="how-to">How To</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="mobile-canonical-url">Canonical URL</Label>
+                        <SidebarInput
+                          id="mobile-canonical-url"
+                          value={`/dashboard/post/${permalink}`}
+                          readOnly
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Jumlah Kata</Label>
+                        <div className="flex h-8 items-center rounded-md border bg-background px-2.5 text-sm">
+                          {wordCount} kata
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </SheetContent>
-                </Sheet>
+                  </SheetContent>
+                  </Sheet>
+                </div>
               </div>
-              <ScrollArea
-                className="relative min-w-0 after:pointer-events-none after:absolute after:inset-y-1 after:right-0 after:w-8 after:bg-linear-to-l after:from-muted/80 after:to-transparent lg:after:hidden [&_[data-orientation=horizontal]]:hidden"
-                viewportClassName="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              >
-                <div className="flex h-10 w-max items-center justify-start gap-1 px-1 lg:mx-auto">
+              <div className="grid min-w-0 grid-cols-[1.75rem_minmax(0,1fr)_1.75rem] items-center gap-1 min-[1200px]:grid-cols-[minmax(0,1fr)]">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="min-[1200px]:hidden"
+                  onClick={() => scrollToolbar("left")}
+                >
+                  <ChevronLeft />
+                </Button>
+                <div className="min-w-0">
+                  <div
+                    ref={toolbarScrollRef}
+                    className="min-w-0 cursor-grab overflow-x-auto touch-pan-x select-none active:cursor-grabbing [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    onClickCapture={handleToolbarClickCapture}
+                    onPointerCancel={handleToolbarPointerUp}
+                    onPointerDown={handleToolbarPointerDown}
+                    onPointerLeave={handleToolbarPointerUp}
+                    onPointerMove={handleToolbarPointerMove}
+                    onPointerUp={handleToolbarPointerUp}
+                    onScroll={updateToolbarScrollState}
+                    onWheel={handleToolbarWheel}
+                  >
+                    <div className="flex h-10 w-max items-center justify-start gap-1 px-1 lg:mx-auto">
               <Button
                 type="button"
                 variant="ghost"
@@ -1048,9 +1199,38 @@ export function PostEditor() {
               >
                 <ImageIcon />
               </Button>
+                    </div>
+                  </div>
+                  <div className="mx-1 mt-1 h-1 rounded-full bg-border min-[1200px]:hidden">
+                    <div
+                      className="h-full w-1/3 rounded-full bg-muted-foreground transition-transform"
+                      style={{
+                        transform: `translateX(${toolbarScrollState.progress * 200}%)`,
+                      }}
+                    />
+                  </div>
                 </div>
-              </ScrollArea>
-              <div className="lg:hidden">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="min-[1200px]:hidden"
+                  onClick={() => scrollToolbar("right")}
+                >
+                  <ChevronRight />
+                </Button>
+              </div>
+              <div className="hidden items-center gap-2 min-[1200px]:flex">
+                <Button type="button" variant="outline" size="sm">
+                  <Save />
+                  Simpan Draft
+                </Button>
+                <Button type="button" size="sm">
+                  <Send />
+                  Publish
+                </Button>
+              </div>
+              <div className="min-[1200px]:hidden">
                 <Sheet>
                 <SheetTrigger
                   render={
@@ -1058,7 +1238,7 @@ export function PostEditor() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="lg:hidden"
+                      className="min-[1200px]:hidden"
                     >
                       <Settings />
                       Details
@@ -1209,7 +1389,7 @@ export function PostEditor() {
                       value={title}
                       onChange={(event) => setTitle(event.target.value)}
                       placeholder="Judul artikel"
-                      className="mx-4 mt-8 h-auto min-h-12 border-0 bg-transparent px-0 py-0 !text-[32px] font-bold leading-tight shadow-none focus-visible:ring-0 sm:mx-8 lg:mx-16 lg:mt-10"
+                      className="mx-6 mt-10 h-auto min-h-12 border-0 bg-transparent px-0 py-0 !text-[32px] font-bold leading-tight shadow-none focus-visible:ring-0"
                     />
                     <EditorContent className="min-h-full" editor={editor} />
                   </div>
@@ -1254,10 +1434,23 @@ export function PostEditor() {
         </div>
       </SidebarInset>
 
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background p-4 min-[1200px]:hidden">
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" variant="outline" size="sm" className="w-full">
+            <Save />
+            Simpan Draft
+          </Button>
+          <Button type="button" size="sm" className="w-full">
+            <Send />
+            Publish
+          </Button>
+        </div>
+      </div>
+
       <Sidebar
         side="right"
         collapsible="none"
-        className="hidden h-screen w-80 border-l px-4 pt-8 pb-4 lg:flex"
+        className="hidden h-screen w-80 border-l px-4 pt-8 pb-4 min-[1200px]:flex"
       >
         <SidebarContent>
           <SidebarGroup className="p-1">
