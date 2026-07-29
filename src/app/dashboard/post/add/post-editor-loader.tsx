@@ -17,9 +17,19 @@ const PostEditor = dynamic(
 
 type PostEditorLoaderProps = {
   mode?: "add" | "edit";
+  postId?: string;
   initialTitle?: string;
   initialSlug?: string;
   initialContent?: string;
+  initialExcerpt?: string;
+  initialPublishDate?: string | null;
+  initialFeaturedImage?: string | null;
+  initialAuthor?: string;
+  initialCategory?: string;
+  initialTag?: string;
+  initialSeoTitle?: string;
+  initialSeoDescription?: string;
+  initialSchemaType?: string;
 };
 
 export function PostEditorLoader(props: PostEditorLoaderProps) {

@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -56,6 +63,7 @@ import {
   UnderlineIcon,
   Undo2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -94,6 +102,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
+import { savePost, type SavePostResult } from "../actions";
 
 const initialContent = `
   <p>Ketik / untuk memilih format seperti heading, paragraph, list, atau quote. Tekan Enter untuk membuat blok baru, lalu geser handle di kiri blok untuk mengatur urutannya.</p>
@@ -408,26 +417,58 @@ const blockSelectionShortcut = Extension.create({
 
 type PostEditorProps = {
   mode?: "add" | "edit";
+  postId?: string;
   initialTitle?: string;
   initialSlug?: string;
   initialContent?: string;
+  initialExcerpt?: string;
+  initialPublishDate?: string | null;
+  initialFeaturedImage?: string | null;
+  initialAuthor?: string;
+  initialCategory?: string;
+  initialTag?: string;
+  initialSeoTitle?: string;
+  initialSeoDescription?: string;
+  initialSchemaType?: string;
 };
 
 export function PostEditor({
   mode = "add",
+  postId,
   initialTitle = "",
   initialSlug = "",
   initialContent: initialEditorContent = initialContent,
+  initialExcerpt = "",
+  initialPublishDate = null,
+  initialFeaturedImage = null,
+  initialAuthor = "admin",
+  initialCategory = "uncategorized",
+  initialTag = "blog",
+  initialSeoTitle = "",
+  initialSeoDescription = "",
+  initialSchemaType = "article",
 }: PostEditorProps) {
   const isEditMode = mode === "edit";
   const publishActionLabel = isEditMode ? "Update" : "Publish";
   const titlePlaceholder = isEditMode ? "Edit judul artikel" : "Judul artikel";
   const [title, setTitle] = useState(initialTitle);
   const [slug, setSlug] = useState(initialSlug);
-  const [publishDate, setPublishDate] = useState<Date | undefined>();
-  const [featuredImage, setFeaturedImage] = useState<string | null>(null);
+  const [publishDate, setPublishDate] = useState<Date | undefined>(
+    initialPublishDate ? new Date(initialPublishDate) : undefined
+  );
+  const [featuredImage, setFeaturedImage] =
+    useState<string | null>(initialFeaturedImage);
+  const [excerpt, setExcerpt] = useState(initialExcerpt);
+  const [author, setAuthor] = useState(initialAuthor);
+  const [category, setCategory] = useState(initialCategory);
+  const [tag, setTag] = useState(initialTag);
+  const [seoTitle, setSeoTitle] = useState(initialSeoTitle);
+  const [seoDescription, setSeoDescription] = useState(initialSeoDescription);
+  const [schemaType, setSchemaType] = useState(initialSchemaType);
   const [htmlDraft, setHtmlDraft] = useState(initialEditorContent);
   const [linkUrl, setLinkUrl] = useState("");
+  const [saveResult, setSaveResult] = useState<SavePostResult | null>(null);
+  const [isPending, startTransition] = useTransition();
   const [toolbarScrollProgress, setToolbarScrollProgress] = useState(0);
   const [slashMenu, setSlashMenu] =
     useState<SlashMenuState>(emptySlashMenu);
@@ -838,6 +879,45 @@ export function PostEditor({
     reader.readAsDataURL(file);
   }
 
+  function updateSelectValue(setValue: (value: string) => void) {
+    return (value: string | null) => {
+      if (value) {
+        setValue(value);
+      }
+    };
+  }
+
+  function submitPost(status: "draft" | "published") {
+    setSaveResult(null);
+
+    startTransition(async () => {
+      const result = await savePost({
+        id: postId,
+        title,
+        slug: permalink,
+        contentHtml: editor?.getHTML() ?? htmlDraft,
+        excerpt,
+        status,
+        publishedAt: publishDate ? publishDate.toISOString() : null,
+        featuredImage,
+        author,
+        category,
+        tag,
+        seoTitle,
+        seoDescription,
+        schemaType,
+      });
+
+      setSaveResult(result);
+
+      if (result.ok) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
+    });
+  }
+
   return (
     <SidebarProvider className="h-screen min-h-0 overflow-hidden">
       <Sidebar
@@ -851,6 +931,8 @@ export function PostEditor({
                 <Label htmlFor="title-tags">Title Tags</Label>
                 <SidebarInput
                   id="title-tags"
+                  value={seoTitle}
+                  onChange={(event) => setSeoTitle(event.target.value)}
                   placeholder="Judul untuk search result"
                 />
               </div>
@@ -858,6 +940,8 @@ export function PostEditor({
                 <Label htmlFor="seo-description">Meta Description</Label>
                 <Textarea
                   id="seo-description"
+                  value={seoDescription}
+                  onChange={(event) => setSeoDescription(event.target.value)}
                   placeholder="Ringkasan untuk hasil pencarian"
                   className="min-h-24 resize-y bg-background"
                 />
@@ -871,7 +955,10 @@ export function PostEditor({
             <SidebarGroupContent className="space-y-4 px-0">
               <div className="space-y-2">
                 <Label>Schema</Label>
-                <Select defaultValue="article">
+                <Select
+                  value={schemaType}
+                  onValueChange={updateSelectValue(setSchemaType)}
+                >
                   <SelectTrigger className="w-full bg-background shadow-none">
                     <SelectValue />
                   </SelectTrigger>
@@ -887,7 +974,7 @@ export function PostEditor({
                 <Label htmlFor="canonical-url">Canonical URL</Label>
                 <SidebarInput
                   id="canonical-url"
-                  value={`/dashboard/post/${permalink}`}
+                  value={`/${permalink}`}
                   readOnly
                 />
               </div>
@@ -931,6 +1018,8 @@ export function PostEditor({
                         <Label htmlFor="mobile-title-tags">Title Tags</Label>
                         <SidebarInput
                           id="mobile-title-tags"
+                          value={seoTitle}
+                          onChange={(event) => setSeoTitle(event.target.value)}
                           placeholder="Judul untuk search result"
                         />
                       </div>
@@ -940,13 +1029,20 @@ export function PostEditor({
                         </Label>
                         <Textarea
                           id="mobile-seo-description"
+                          value={seoDescription}
+                          onChange={(event) =>
+                            setSeoDescription(event.target.value)
+                          }
                           placeholder="Ringkasan untuk hasil pencarian"
                           className="min-h-24 resize-y bg-background"
                         />
                       </div>
                       <div className="space-y-2">
                         <Label>Schema</Label>
-                        <Select defaultValue="article">
+                        <Select
+                          value={schemaType}
+                          onValueChange={updateSelectValue(setSchemaType)}
+                        >
                           <SelectTrigger className="w-full bg-background shadow-none">
                             <SelectValue />
                           </SelectTrigger>
@@ -966,7 +1062,7 @@ export function PostEditor({
                         <Label htmlFor="mobile-canonical-url">Canonical URL</Label>
                         <SidebarInput
                           id="mobile-canonical-url"
-                          value={`/dashboard/post/${permalink}`}
+                          value={`/${permalink}`}
                           readOnly
                         />
                       </div>
@@ -1228,13 +1324,24 @@ export function PostEditor({
                 </Button>
               </div>
               <div className="hidden items-center gap-2 min-[1200px]:flex">
-                <Button type="button" variant="outline" size="sm">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isPending}
+                  onClick={() => submitPost("draft")}
+                >
                   <Save />
                   Simpan Draft
                 </Button>
-                <Button type="button" size="sm">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isPending}
+                  onClick={() => submitPost("published")}
+                >
                   <Send />
-                  {publishActionLabel}
+                  {isPending ? "Menyimpan..." : publishActionLabel}
                 </Button>
               </div>
               <div className="min-[1200px]:hidden">
@@ -1285,6 +1392,8 @@ export function PostEditor({
                       <Label htmlFor="mobile-post-excerpt">Excerpt</Label>
                       <Textarea
                         id="mobile-post-excerpt"
+                        value={excerpt}
+                        onChange={(event) => setExcerpt(event.target.value)}
                         placeholder="Ringkasan singkat untuk post ini"
                         className="min-h-24 resize-y bg-background"
                       />
@@ -1330,7 +1439,10 @@ export function PostEditor({
                     </div>
                     <div className="space-y-2">
                       <Label>Penulis</Label>
-                      <Select defaultValue="admin">
+                      <Select
+                        value={author}
+                        onValueChange={updateSelectValue(setAuthor)}
+                      >
                         <SelectTrigger className="w-full bg-background shadow-none">
                           <SelectValue />
                         </SelectTrigger>
@@ -1343,7 +1455,10 @@ export function PostEditor({
                     </div>
                     <div className="space-y-2">
                       <Label>Kategori</Label>
-                      <Select defaultValue="uncategorized">
+                      <Select
+                        value={category}
+                        onValueChange={updateSelectValue(setCategory)}
+                      >
                         <SelectTrigger className="w-full bg-background shadow-none">
                           <SelectValue />
                         </SelectTrigger>
@@ -1358,7 +1473,10 @@ export function PostEditor({
                     </div>
                     <div className="space-y-2">
                       <Label>Tag</Label>
-                      <Select defaultValue="blog">
+                      <Select
+                        value={tag}
+                        onValueChange={updateSelectValue(setTag)}
+                      >
                         <SelectTrigger className="w-full bg-background shadow-none">
                           <SelectValue />
                         </SelectTrigger>
@@ -1374,6 +1492,15 @@ export function PostEditor({
                 </Sheet>
               </div>
             </div>
+
+            {saveResult ? (
+              <div
+                className="rounded-md border bg-background px-3 py-2 text-sm"
+                role="status"
+              >
+                {saveResult.message}
+              </div>
+            ) : null}
 
             <ScrollArea className="min-h-0 flex-1">
               <Card className="flex min-h-full border border-border py-0 shadow-none ring-0">
@@ -1443,13 +1570,26 @@ export function PostEditor({
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background p-4 min-[1200px]:hidden">
         <div className="grid grid-cols-2 gap-2">
-          <Button type="button" variant="outline" size="sm" className="w-full">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full"
+            disabled={isPending}
+            onClick={() => submitPost("draft")}
+          >
             <Save />
             Simpan Draft
           </Button>
-          <Button type="button" size="sm" className="w-full">
+          <Button
+            type="button"
+            size="sm"
+            className="w-full"
+            disabled={isPending}
+            onClick={() => submitPost("published")}
+          >
             <Send />
-            {publishActionLabel}
+            {isPending ? "Menyimpan..." : publishActionLabel}
           </Button>
         </div>
       </div>
@@ -1506,6 +1646,8 @@ export function PostEditor({
                 <Label htmlFor="post-excerpt">Excerpt</Label>
                 <Textarea
                   id="post-excerpt"
+                  value={excerpt}
+                  onChange={(event) => setExcerpt(event.target.value)}
                   placeholder="Ringkasan singkat untuk post ini"
                   className="min-h-24 resize-y bg-background"
                 />
@@ -1558,7 +1700,10 @@ export function PostEditor({
             <SidebarGroupContent className="space-y-4 px-0">
               <div className="space-y-2">
                 <Label>Penulis</Label>
-                <Select defaultValue="admin">
+                <Select
+                  value={author}
+                  onValueChange={updateSelectValue(setAuthor)}
+                >
                   <SelectTrigger className="w-full bg-background shadow-none">
                     <SelectValue />
                   </SelectTrigger>
@@ -1571,7 +1716,10 @@ export function PostEditor({
               </div>
               <div className="space-y-2">
                 <Label>Kategori</Label>
-                <Select defaultValue="uncategorized">
+                <Select
+                  value={category}
+                  onValueChange={updateSelectValue(setCategory)}
+                >
                   <SelectTrigger className="w-full bg-background shadow-none">
                     <SelectValue />
                   </SelectTrigger>
@@ -1584,7 +1732,7 @@ export function PostEditor({
               </div>
               <div className="space-y-2">
                 <Label>Tag</Label>
-                <Select defaultValue="blog">
+                <Select value={tag} onValueChange={updateSelectValue(setTag)}>
                   <SelectTrigger className="w-full bg-background shadow-none">
                     <SelectValue />
                   </SelectTrigger>
