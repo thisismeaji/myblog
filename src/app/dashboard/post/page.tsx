@@ -1,7 +1,7 @@
 import { PostTable } from "@/components/post-table";
 import { getCachedPosts } from "@/lib/posts";
 
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 export default async function PostPage() {
   const posts = await getCachedPosts();
@@ -21,6 +21,16 @@ export default async function PostPage() {
               views: post.views.toLocaleString("id-ID"),
               words: post.words.toLocaleString("id-ID"),
               author: post.author,
+              createdAt: new Date(post.createdAt).toLocaleDateString("id-ID", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              }),
+              updatedAt: new Date(post.updatedAt).toLocaleDateString("id-ID", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              }),
             }))}
           />
         </div>

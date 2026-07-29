@@ -1,7 +1,7 @@
 import { PostEditorLoader } from "../add/post-editor-loader";
 import { getCachedLatestPost, getCachedPostById } from "@/lib/posts";
 
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 const editContent = `
   <p>Belum ada post di database. Tulis konten baru, lalu simpan untuk menghubungkan halaman edit dengan Neon.</p>

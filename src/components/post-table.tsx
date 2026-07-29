@@ -65,6 +65,8 @@ type BlogPost = {
   views: string;
   words: string;
   author: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 const columns: ColumnDef<BlogPost>[] = [
@@ -136,6 +138,14 @@ const columns: ColumnDef<BlogPost>[] = [
   {
     accessorKey: "author",
     header: "Author",
+  },
+  {
+    accessorKey: "createdAt",
+    header: "Created At",
+  },
+  {
+    accessorKey: "updatedAt",
+    header: "Updated At",
   },
   {
     id: "actions",

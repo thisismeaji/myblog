@@ -9,6 +9,7 @@ if (!databaseUrl) {
 
 const sql = neon(databaseUrl);
 let postsTableReady: Promise<void> | null = null;
+const POSTS_CACHE_SECONDS = 86400;
 
 export type PostStatus = "draft" | "published";
 
@@ -44,6 +45,7 @@ export type PostListItem = {
   words: number;
   author: string;
   featuredImage: string | null;
+  createdAt: string;
   updatedAt: string;
 };
 
@@ -65,13 +67,27 @@ async function ensurePostsTable() {
         seo_title TEXT NOT NULL DEFAULT '',
         seo_description TEXT NOT NULL DEFAULT '',
         schema_type TEXT NOT NULL DEFAULT 'article',
+        word_count INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `;
+
+    await sql`
+      ALTER TABLE posts
+      ADD COLUMN IF NOT EXISTS word_count INTEGER NOT NULL DEFAULT 0
+    `;
   })();
 
   await postsTableReady;
+}
+
+function countWordsFromHtml(html: string) {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
 }
 
 function mapPost(row: Record<string, unknown>): PostRecord {
@@ -113,7 +129,8 @@ export async function createPost(input: PostInput) {
       tag,
       seo_title,
       seo_description,
-      schema_type
+      schema_type,
+      word_count
     )
     VALUES (
       ${crypto.randomUUID()},
@@ -129,7 +146,8 @@ export async function createPost(input: PostInput) {
       ${input.tag},
       ${input.seoTitle},
       ${input.seoDescription},
-      ${input.schemaType}
+      ${input.schemaType},
+      ${countWordsFromHtml(input.contentHtml)}
     )
     RETURNING *
   `;
@@ -156,6 +174,7 @@ export async function updatePost(id: string, input: PostInput) {
       seo_title = ${input.seoTitle},
       seo_description = ${input.seoDescription},
       schema_type = ${input.schemaType},
+      word_count = ${countWordsFromHtml(input.contentHtml)},
       updated_at = NOW()
     WHERE id = ${id}
     RETURNING *
@@ -214,15 +233,12 @@ export async function getPosts() {
       status,
       author,
       featured_image,
+      created_at,
       updated_at,
-      CARDINALITY(
-        REGEXP_SPLIT_TO_ARRAY(
-          TRIM(REGEXP_REPLACE(content_html, '<[^>]*>', ' ', 'g')),
-          '\\s+'
-        )
-      ) AS words
+      word_count
     FROM posts
     ORDER BY updated_at DESC
+    LIMIT 100
   `;
 
   return rows.map((row): PostListItem => ({
@@ -232,9 +248,10 @@ export async function getPosts() {
     category: String(row.category ?? "uncategorized"),
     status: row.status === "published" ? "published" : "draft",
     views: 0,
-    words: Number(row.words ?? 0),
+    words: Number(row.word_count ?? 0),
     author: String(row.author ?? "admin"),
     featuredImage: row.featured_image ? String(row.featured_image) : null,
+    createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at)).toISOString(),
   }));
 }
@@ -243,17 +260,17 @@ export const getCachedLatestPost = unstable_cache(
   getLatestPost,
   ["latest-post"],
   {
-    revalidate: 3600,
+    revalidate: POSTS_CACHE_SECONDS,
     tags: ["posts"],
   }
 );
 
 export const getCachedPostById = unstable_cache(getPostById, ["post-by-id"], {
-  revalidate: 3600,
+  revalidate: POSTS_CACHE_SECONDS,
   tags: ["posts"],
 });
 
 export const getCachedPosts = unstable_cache(getPosts, ["posts"], {
-  revalidate: 3600,
+  revalidate: POSTS_CACHE_SECONDS,
   tags: ["posts"],
 });

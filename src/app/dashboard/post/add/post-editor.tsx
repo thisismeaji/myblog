@@ -21,7 +21,6 @@ import TaskList from "@tiptap/extension-task-list";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import { Extension, Node, type Editor } from "@tiptap/core";
-import { DragHandle } from "@tiptap/extension-drag-handle-react";
 import { TextSelection } from "@tiptap/pm/state";
 import {
   EditorContent,
@@ -42,7 +41,6 @@ import {
   CheckSquare,
   Code,
   Code2,
-  GripVertical,
   Heading2,
   Heading3,
   Heading4,
@@ -103,11 +101,34 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { savePost } from "../actions";
 
 const initialContent = `
   <p>Ketik / untuk memilih format seperti heading, paragraph, list, atau quote. Tekan Enter untuk membuat blok baru, lalu geser handle di kiri blok untuk mengatur urutannya.</p>
 `;
+
+function ToolbarIconButton({
+  label,
+  children,
+  ...props
+}: React.ComponentProps<typeof Button> & {
+  label: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<Button {...props} />}>
+        {children}
+        <span className="sr-only">{label}</span>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 function ImageUploadView({ node, updateAttributes }: NodeViewProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -246,12 +267,93 @@ const emptySlashMenu: SlashMenuState = {
   selectedIndex: 0,
 };
 
+type LinkMenuState = {
+  open: boolean;
+  top: number;
+  left: number;
+};
+
+const emptyLinkMenu: LinkMenuState = {
+  open: false,
+  top: 0,
+  left: 0,
+};
+
+type ContextMenuState = {
+  open: boolean;
+  top: number;
+  left: number;
+};
+
+const emptyContextMenu: ContextMenuState = {
+  open: false,
+  top: 0,
+  left: 0,
+};
+
+type BlockType = "paragraph" | "heading-2" | "heading-3" | "heading-4" | "heading-5";
+
+const blockTypeLabels: Record<BlockType, string> = {
+  paragraph: "Paragraph",
+  "heading-2": "Heading 2",
+  "heading-3": "Heading 3",
+  "heading-4": "Heading 4",
+  "heading-5": "Heading 5",
+};
+
+function getActiveBlockType(editor: Editor): BlockType {
+  if (editor.isActive("heading", { level: 2 })) {
+    return "heading-2";
+  }
+
+  if (editor.isActive("heading", { level: 3 })) {
+    return "heading-3";
+  }
+
+  if (editor.isActive("heading", { level: 4 })) {
+    return "heading-4";
+  }
+
+  if (editor.isActive("heading", { level: 5 })) {
+    return "heading-5";
+  }
+
+  return "paragraph";
+}
+
 type SlashCommand = {
   title: string;
   keywords: string;
   icon: React.ReactNode;
   run: (editor: Editor, range: { from: number; to: number }) => void;
 };
+
+type ContextCommand = {
+  title: string;
+  icon: React.ReactNode;
+  run: (editor: Editor) => void;
+};
+
+function selectedText(editor: Editor) {
+  const { from, to, empty } = editor.state.selection;
+
+  if (empty) {
+    return "";
+  }
+
+  return editor.state.doc.textBetween(from, to, "\n").trim();
+}
+
+function textContent(text: string) {
+  return text ? [{ type: "text", text }] : undefined;
+}
+
+function insertSelectedAsBlock(
+  editor: Editor,
+  content: Record<string, unknown>
+) {
+  editor.chain().focus().deleteSelection().insertContent(content).run();
+}
 
 const slashCommands: SlashCommand[] = [
   {
@@ -374,6 +476,174 @@ const slashCommands: SlashCommand[] = [
   },
 ];
 
+const contextCommands: ContextCommand[] = [
+  {
+    title: "Paragraph",
+    icon: <Pilcrow className="size-4" />,
+    run: (editor) => {
+      const text = selectedText(editor);
+
+      if (text) {
+        insertSelectedAsBlock(editor, {
+          type: "paragraph",
+          content: textContent(text),
+        });
+        return;
+      }
+
+      editor.chain().focus().setParagraph().run();
+    },
+  },
+  {
+    title: "Heading 2",
+    icon: <Heading2 className="size-4" />,
+    run: (editor) => {
+      const text = selectedText(editor);
+
+      if (text) {
+        insertSelectedAsBlock(editor, {
+          type: "heading",
+          attrs: { level: 2 },
+          content: textContent(text),
+        });
+        return;
+      }
+
+      editor.chain().focus().toggleHeading({ level: 2 }).run();
+    },
+  },
+  {
+    title: "Heading 3",
+    icon: <Heading3 className="size-4" />,
+    run: (editor) => {
+      const text = selectedText(editor);
+
+      if (text) {
+        insertSelectedAsBlock(editor, {
+          type: "heading",
+          attrs: { level: 3 },
+          content: textContent(text),
+        });
+        return;
+      }
+
+      editor.chain().focus().toggleHeading({ level: 3 }).run();
+    },
+  },
+  {
+    title: "Heading 4",
+    icon: <Heading4 className="size-4" />,
+    run: (editor) => {
+      const text = selectedText(editor);
+
+      if (text) {
+        insertSelectedAsBlock(editor, {
+          type: "heading",
+          attrs: { level: 4 },
+          content: textContent(text),
+        });
+        return;
+      }
+
+      editor.chain().focus().toggleHeading({ level: 4 }).run();
+    },
+  },
+  {
+    title: "Heading 5",
+    icon: <Heading5 className="size-4" />,
+    run: (editor) => {
+      const text = selectedText(editor);
+
+      if (text) {
+        insertSelectedAsBlock(editor, {
+          type: "heading",
+          attrs: { level: 5 },
+          content: textContent(text),
+        });
+        return;
+      }
+
+      editor.chain().focus().toggleHeading({ level: 5 }).run();
+    },
+  },
+  {
+    title: "Numbered List",
+    icon: <ListOrdered className="size-4" />,
+    run: (editor) => {
+      const text = selectedText(editor);
+
+      if (text) {
+        insertSelectedAsBlock(editor, {
+          type: "orderedList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: textContent(text),
+                },
+              ],
+            },
+          ],
+        });
+        return;
+      }
+
+      editor.chain().focus().toggleOrderedList().run();
+    },
+  },
+  {
+    title: "Bulleted List",
+    icon: <List className="size-4" />,
+    run: (editor) => {
+      const text = selectedText(editor);
+
+      if (text) {
+        insertSelectedAsBlock(editor, {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: textContent(text),
+                },
+              ],
+            },
+          ],
+        });
+        return;
+      }
+
+      editor.chain().focus().toggleBulletList().run();
+    },
+  },
+  {
+    title: "Quote",
+    icon: <Quote className="size-4" />,
+    run: (editor) => {
+      const text = selectedText(editor);
+
+      if (text) {
+        insertSelectedAsBlock(editor, {
+          type: "blockquote",
+          content: [
+            {
+              type: "paragraph",
+              content: textContent(text),
+            },
+          ],
+        });
+        return;
+      }
+
+      editor.chain().focus().toggleBlockquote().run();
+    },
+  },
+];
+
 const blockSelectionShortcut = Extension.create({
   name: "blockSelectionShortcut",
 
@@ -469,10 +739,16 @@ export function PostEditor({
   const [schemaType, setSchemaType] = useState(initialSchemaType);
   const [htmlDraft, setHtmlDraft] = useState(initialEditorContent);
   const [linkUrl, setLinkUrl] = useState("");
+  const [linkMenu, setLinkMenu] = useState<LinkMenuState>(emptyLinkMenu);
+  const [contextMenu, setContextMenu] =
+    useState<ContextMenuState>(emptyContextMenu);
   const [isPending, startTransition] = useTransition();
   const [toolbarScrollProgress, setToolbarScrollProgress] = useState(0);
+  const [activeBlockType, setActiveBlockType] =
+    useState<BlockType>("paragraph");
   const [slashMenu, setSlashMenu] =
     useState<SlashMenuState>(emptySlashMenu);
+  const titleInputRef = useRef<HTMLTextAreaElement>(null);
   const featuredImageInputRef = useRef<HTMLInputElement>(null);
   const toolbarScrollRef = useRef<HTMLDivElement>(null);
   const toolbarDragRef = useRef({
@@ -510,6 +786,24 @@ export function PostEditor({
       window.removeEventListener("resize", updateToolbarScrollState);
     };
   }, [updateToolbarScrollState]);
+
+  useEffect(() => {
+    if (titleInputRef.current) {
+      resizeTitleField(titleInputRef.current);
+    }
+  }, [title]);
+
+  useEffect(() => {
+    function closeFloatingMenus() {
+      setContextMenu(emptyContextMenu);
+    }
+
+    window.addEventListener("click", closeFloatingMenus);
+
+    return () => {
+      window.removeEventListener("click", closeFloatingMenus);
+    };
+  }, []);
 
   function scrollToolbar(direction: "left" | "right") {
     toolbarScrollRef.current?.scrollBy({
@@ -598,6 +892,11 @@ export function PostEditor({
     event.preventDefault();
     event.stopPropagation();
     toolbarDragRef.current.didDrag = false;
+  }
+
+  function resizeTitleField(element: HTMLTextAreaElement) {
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
   }
 
   const filteredSlashCommands = useMemo(() => {
@@ -712,14 +1011,16 @@ export function PostEditor({
     editorProps: {
       attributes: {
         class:
-          "min-h-full w-full max-w-none flex-1 px-6 pt-10 pb-48 text-base leading-7 outline-none [&>*]:m-0 [&>*:not(:first-child)]:mt-5 [&_.ProseMirror-selectednode]:outline-none [&_blockquote]:mt-6 [&_blockquote]:border-l-2 [&_blockquote]:pl-6 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_h2]:mt-8 [&_h2]:scroll-m-20 [&_h2]:border-b [&_h2]:pb-2 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:leading-snug [&_h3]:mt-7 [&_h3]:scroll-m-20 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:leading-snug [&_h4]:mt-6 [&_h4]:scroll-m-20 [&_h4]:text-lg [&_h4]:font-semibold [&_h4]:leading-snug [&_h5]:mt-5 [&_h5]:scroll-m-20 [&_h5]:text-base [&_h5]:font-semibold [&_h5]:leading-snug [&_img]:my-6 [&_img]:h-auto [&_img]:w-full [&_li]:mt-2 [&_li]:leading-7 [&_ol]:my-6 [&_ol]:ml-6 [&_ol]:list-decimal [&_p]:leading-7 [&_table]:my-6 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:bg-muted [&_th]:p-2 [&_ul[data-type=taskList]]:ml-0 [&_ul[data-type=taskList]]:list-none [&_ul[data-type=taskList]]:pl-0 [&_ul]:my-6 [&_ul]:ml-6 [&_ul]:list-disc",
+          "min-h-full w-full max-w-none flex-1 px-6 pt-10 pb-24 text-base leading-7 outline-none [&>*]:m-0 [&>*:not(:first-child)]:mt-5 [&_.ProseMirror-selectednode]:outline-none [&_blockquote]:mt-6 [&_blockquote]:border-l-2 [&_blockquote]:pl-6 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_h2]:mt-8 [&_h2]:scroll-m-20 [&_h2]:border-b [&_h2]:pb-2 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:leading-snug [&_h3]:mt-7 [&_h3]:scroll-m-20 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:leading-snug [&_h4]:mt-6 [&_h4]:scroll-m-20 [&_h4]:text-lg [&_h4]:font-semibold [&_h4]:leading-snug [&_h5]:mt-5 [&_h5]:scroll-m-20 [&_h5]:text-base [&_h5]:font-semibold [&_h5]:leading-snug [&_img]:my-6 [&_img]:h-auto [&_img]:w-full [&_li]:mt-2 [&_li]:leading-7 [&_ol]:my-6 [&_ol]:ml-6 [&_ol]:list-decimal [&_p]:leading-7 [&_table]:my-6 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:bg-muted [&_th]:p-2 [&_ul[data-type=taskList]]:ml-0 [&_ul[data-type=taskList]]:list-none [&_ul[data-type=taskList]]:pl-0 [&_ul]:my-6 [&_ul]:ml-6 [&_ul]:list-disc",
       },
     },
     onUpdate: ({ editor: currentEditor }) => {
       setHtmlDraft(currentEditor.getHTML());
+      setActiveBlockType(getActiveBlockType(currentEditor));
       updateSlashMenu(currentEditor);
     },
     onSelectionUpdate: ({ editor: currentEditor }) => {
+      setActiveBlockType(getActiveBlockType(currentEditor));
       updateSlashMenu(currentEditor);
     },
   });
@@ -809,16 +1110,6 @@ export function PostEditor({
     }
   }
 
-  const blockType = editor?.isActive("heading", { level: 2 })
-    ? "heading-2"
-    : editor?.isActive("heading", { level: 3 })
-      ? "heading-3"
-      : editor?.isActive("heading", { level: 4 })
-        ? "heading-4"
-        : editor?.isActive("heading", { level: 5 })
-          ? "heading-5"
-          : "paragraph";
-
   function applyBlockType(value: string | null) {
     if (!editor || !value) {
       return;
@@ -840,6 +1131,7 @@ export function PostEditor({
 
     if (!linkUrl) {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      setLinkMenu(emptyLinkMenu);
       return;
     }
 
@@ -849,10 +1141,93 @@ export function PostEditor({
       .extendMarkRange("link")
       .setLink({ href: linkUrl })
       .run();
+    setLinkMenu(emptyLinkMenu);
   }
 
   function insertImageUpload() {
     editor?.chain().focus().insertContent({ type: "imageUpload" }).run();
+  }
+
+  function openLinkMenu() {
+    if (!editor) {
+      return;
+    }
+
+    const { from, to } = editor.state.selection;
+    const startCoords = editor.view.coordsAtPos(from);
+    const endCoords = editor.view.coordsAtPos(to);
+    const menuWidth = 320;
+    const menuHeight = 132;
+    const viewportWidth = window.innerWidth;
+    const shouldOpenAbove = startCoords.top - menuHeight - 12 > 0;
+    const top = shouldOpenAbove
+      ? startCoords.top - menuHeight - 8
+      : endCoords.bottom + 8;
+    const centerLeft = (startCoords.left + endCoords.right) / 2 - menuWidth / 2;
+
+    setLinkUrl(editor.getAttributes("link").href ?? "");
+    setLinkMenu({
+      open: true,
+      top: Math.max(16, top),
+      left: Math.min(Math.max(16, centerLeft), viewportWidth - menuWidth - 16),
+    });
+  }
+
+  function openLinkMenuAt(top: number, left: number) {
+    if (!editor) {
+      return;
+    }
+
+    const menuWidth = 320;
+    const viewportWidth = window.innerWidth;
+
+    setLinkUrl(editor.getAttributes("link").href ?? "");
+    setLinkMenu({
+      open: true,
+      top: Math.max(16, top),
+      left: Math.min(Math.max(16, left), viewportWidth - menuWidth - 16),
+    });
+  }
+
+  function handleEditorContextMenu(event: React.MouseEvent<HTMLDivElement>) {
+    if (!editor) {
+      return;
+    }
+
+    event.preventDefault();
+    setSlashMenu(emptySlashMenu);
+    setLinkMenu(emptyLinkMenu);
+
+    if (editor.state.selection.empty) {
+      const position = editor.view.posAtCoords({
+        left: event.clientX,
+        top: event.clientY,
+      });
+
+      if (position) {
+        editor.chain().focus().setTextSelection(position.pos).run();
+      }
+    }
+
+    const menuWidth = 256;
+    const menuHeight = 448;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    setContextMenu({
+      open: true,
+      top: Math.min(event.clientY, viewportHeight - menuHeight - 16),
+      left: Math.min(event.clientX, viewportWidth - menuWidth - 16),
+    });
+  }
+
+  function runContextCommand(command: ContextCommand) {
+    if (!editor) {
+      return;
+    }
+
+    command.run(editor);
+    setContextMenu(emptyContextMenu);
   }
 
   function updateSlug(value: string) {
@@ -925,7 +1300,7 @@ export function PostEditor({
   }
 
   return (
-    <SidebarProvider className="h-screen min-h-0 overflow-hidden">
+    <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
       <Sidebar
         collapsible="none"
         className="hidden h-screen w-80 border-r px-4 pt-8 pb-4 min-[1400px]:flex"
@@ -996,7 +1371,7 @@ export function PostEditor({
       </Sidebar>
 
       <SidebarInset className="min-h-0 min-w-0 bg-muted/30">
-        <div className="flex h-screen min-h-0 flex-col gap-4 overflow-hidden p-4 pb-24">
+        <div className="flex h-dvh min-h-0 flex-col gap-4 overflow-hidden p-4 pb-24 min-[1200px]:pb-4">
           <section className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 min-w-0 flex-col gap-4">
             <div className="z-30 grid flex-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 bg-transparent p-1">
               <div className="flex items-center gap-2">
@@ -1096,7 +1471,7 @@ export function PostEditor({
                 <div className="min-w-0">
                   <div
                     ref={toolbarScrollRef}
-                    className="min-w-0 cursor-grab overflow-x-auto touch-pan-x select-none active:cursor-grabbing [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    className="min-w-0 overflow-x-auto touch-pan-x select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                     onClickCapture={handleToolbarClickCapture}
                     onPointerCancel={handleToolbarPointerUp}
                     onPointerDown={handleToolbarPointerDown}
@@ -1107,7 +1482,8 @@ export function PostEditor({
                     onWheel={handleToolbarWheel}
                   >
                     <div className="flex h-10 w-max items-center justify-start gap-1 px-1 lg:mx-auto">
-              <Button
+              <ToolbarIconButton
+                label="Undo"
                 type="button"
                 variant="ghost"
                 size="icon-sm"
@@ -1115,8 +1491,9 @@ export function PostEditor({
                 onClick={() => editor?.chain().focus().undo().run()}
               >
                 <Undo2 />
-              </Button>
-              <Button
+              </ToolbarIconButton>
+              <ToolbarIconButton
+                label="Redo"
                 type="button"
                 variant="ghost"
                 size="icon-sm"
@@ -1124,22 +1501,23 @@ export function PostEditor({
                 onClick={() => editor?.chain().focus().redo().run()}
               >
                 <Redo2 />
-              </Button>
+              </ToolbarIconButton>
               <Separator orientation="vertical" className="mx-1 h-7" />
-              <Select value={blockType} onValueChange={applyBlockType}>
+            <Select value={activeBlockType} onValueChange={applyBlockType}>
                 <SelectTrigger size="sm" className="w-32 shadow-none">
-                  <SelectValue />
+                  <SelectValue>{blockTypeLabels[activeBlockType]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="paragraph">Paragraph</SelectItem>
-                  <SelectItem value="heading-2">H2</SelectItem>
-                  <SelectItem value="heading-3">H3</SelectItem>
-                  <SelectItem value="heading-4">H4</SelectItem>
-                  <SelectItem value="heading-5">H5</SelectItem>
+                  <SelectItem value="heading-2">Heading 2</SelectItem>
+                  <SelectItem value="heading-3">Heading 3</SelectItem>
+                  <SelectItem value="heading-4">Heading 4</SelectItem>
+                  <SelectItem value="heading-5">Heading 5</SelectItem>
                 </SelectContent>
               </Select>
               <Separator orientation="vertical" className="mx-1 h-7" />
-              <Button
+              <ToolbarIconButton
+                label="Bulleted List"
                 type="button"
                 variant="ghost"
                 size="icon-sm"
@@ -1147,8 +1525,9 @@ export function PostEditor({
                 onClick={() => editor?.chain().focus().toggleBulletList().run()}
               >
                 <List />
-              </Button>
-              <Button
+              </ToolbarIconButton>
+              <ToolbarIconButton
+                label="Numbered List"
                 type="button"
                 variant="ghost"
                 size="icon-sm"
@@ -1156,8 +1535,9 @@ export function PostEditor({
                 onClick={() => editor?.chain().focus().toggleOrderedList().run()}
               >
                 <ListOrdered />
-              </Button>
-              <Button
+              </ToolbarIconButton>
+              <ToolbarIconButton
+                label="Code Block"
                 type="button"
                 variant="ghost"
                 size="icon-sm"
@@ -1165,8 +1545,9 @@ export function PostEditor({
                 onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
               >
                 <Code2 />
-              </Button>
-              <Button
+              </ToolbarIconButton>
+              <ToolbarIconButton
+                label="Inline Code"
                 type="button"
                 variant="ghost"
                 size="icon-sm"
@@ -1174,9 +1555,10 @@ export function PostEditor({
                 onClick={() => editor?.chain().focus().toggleCode().run()}
               >
                 <Code />
-              </Button>
+              </ToolbarIconButton>
               <Separator orientation="vertical" className="mx-1 h-7" />
-              <Button
+              <ToolbarIconButton
+                label="Bold"
                 type="button"
                 variant={editor?.isActive("bold") ? "secondary" : "ghost"}
                 size="icon-sm"
@@ -1184,8 +1566,9 @@ export function PostEditor({
                 onClick={() => editor?.chain().focus().toggleBold().run()}
               >
                 <Bold />
-              </Button>
-              <Button
+              </ToolbarIconButton>
+              <ToolbarIconButton
+                label="Italic"
                 type="button"
                 variant={editor?.isActive("italic") ? "secondary" : "ghost"}
                 size="icon-sm"
@@ -1193,8 +1576,9 @@ export function PostEditor({
                 onClick={() => editor?.chain().focus().toggleItalic().run()}
               >
                 <Italic />
-              </Button>
-              <Button
+              </ToolbarIconButton>
+              <ToolbarIconButton
+                label="Underline"
                 type="button"
                 variant={editor?.isActive("underline") ? "secondary" : "ghost"}
                 size="icon-sm"
@@ -1202,8 +1586,9 @@ export function PostEditor({
                 onClick={() => editor?.chain().focus().toggleUnderline().run()}
               >
                 <UnderlineIcon />
-              </Button>
-              <Button
+              </ToolbarIconButton>
+              <ToolbarIconButton
+                label="Strikethrough"
                 type="button"
                 variant={editor?.isActive("strike") ? "secondary" : "ghost"}
                 size="icon-sm"
@@ -1211,65 +1596,20 @@ export function PostEditor({
                 onClick={() => editor?.chain().focus().toggleStrike().run()}
               >
                 <Strikethrough />
-              </Button>
-              <Popover>
-                <PopoverTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant={editor?.isActive("link") ? "secondary" : "ghost"}
-                      size="sm"
-                      disabled={!editor}
-                      onClick={() =>
-                        setLinkUrl(editor?.getAttributes("link").href ?? "")
-                      }
-                    >
-                      <LinkIcon />
-                      Link
-                    </Button>
-                  }
-                />
-                <PopoverContent align="center" className="w-80 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="toolbar-link-url">URL Link</Label>
-                    <Input
-                      id="toolbar-link-url"
-                      value={linkUrl}
-                      onChange={(event) => setLinkUrl(event.target.value)}
-                      placeholder="https://example.com"
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          setToolbarLink();
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setLinkUrl("");
-                        editor
-                          ?.chain()
-                          .focus()
-                          .extendMarkRange("link")
-                          .unsetLink()
-                          .run();
-                      }}
-                    >
-                      Remove
-                    </Button>
-                    <Button type="button" size="sm" onClick={setToolbarLink}>
-                      Apply
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-              <Separator orientation="vertical" className="mx-1 h-7" />
+              </ToolbarIconButton>
               <Button
+                type="button"
+                variant={editor?.isActive("link") ? "secondary" : "ghost"}
+                size="sm"
+                disabled={!editor}
+                onClick={openLinkMenu}
+              >
+                <LinkIcon />
+                Link
+              </Button>
+              <Separator orientation="vertical" className="mx-1 h-7" />
+              <ToolbarIconButton
+                label="Align Left"
                 type="button"
                 variant="ghost"
                 size="icon-sm"
@@ -1277,8 +1617,9 @@ export function PostEditor({
                 onClick={() => editor?.chain().focus().setTextAlign("left").run()}
               >
                 <AlignLeft />
-              </Button>
-              <Button
+              </ToolbarIconButton>
+              <ToolbarIconButton
+                label="Align Center"
                 type="button"
                 variant="ghost"
                 size="icon-sm"
@@ -1288,8 +1629,9 @@ export function PostEditor({
                 }
               >
                 <AlignCenter />
-              </Button>
-              <Button
+              </ToolbarIconButton>
+              <ToolbarIconButton
+                label="Align Right"
                 type="button"
                 variant="ghost"
                 size="icon-sm"
@@ -1297,9 +1639,10 @@ export function PostEditor({
                 onClick={() => editor?.chain().focus().setTextAlign("right").run()}
               >
                 <AlignRight />
-              </Button>
+              </ToolbarIconButton>
               <Separator orientation="vertical" className="mx-1 h-7" />
-              <Button
+              <ToolbarIconButton
+                label="Insert Image"
                 type="button"
                 variant="ghost"
                 size="icon-sm"
@@ -1307,7 +1650,7 @@ export function PostEditor({
                 onClick={insertImageUpload}
               >
                 <ImageIcon />
-              </Button>
+              </ToolbarIconButton>
                     </div>
                   </div>
                   <div className="mx-1 mt-1 h-1 rounded-full bg-border min-[1200px]:hidden">
@@ -1499,30 +1842,34 @@ export function PostEditor({
               </div>
             </div>
 
-            <ScrollArea className="min-h-0 flex-1">
+            <ScrollArea className="min-h-0 flex-1" viewportClassName="h-full">
               <Card className="flex min-h-full border border-border py-0 shadow-none ring-0">
                 <CardContent className="flex min-h-full w-full flex-col p-0">
-                  {editor ? (
-                    <DragHandle
-                      editor={editor}
-                      className="z-20 flex size-6 -translate-x-3 cursor-grab items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[dragging=true]:cursor-grabbing data-[dragging=true]:bg-sidebar-accent data-[dragging=true]:text-sidebar-accent-foreground"
-                      nested
-                    >
-                      <GripVertical className="size-3.5" />
-                    </DragHandle>
-                  ) : null}
-
                   <div
-                    className="min-h-0 flex-1"
+                    className="flex min-h-full flex-1 flex-col"
+                    onContextMenu={handleEditorContextMenu}
                     onKeyDownCapture={handleEditorKeyDown}
                   >
-                    <Input
-                      value={title}
-                      onChange={(event) => setTitle(event.target.value)}
-                      placeholder={titlePlaceholder}
-                      className="mx-6 mt-10 h-auto min-h-12 border-0 bg-transparent px-0 py-0 !text-[32px] font-bold leading-tight shadow-none focus-visible:ring-0"
+                    <div className="mt-10 px-6">
+                      <Textarea
+                        ref={titleInputRef}
+                        value={title}
+                        onChange={(event) => {
+                          setTitle(event.target.value);
+                          resizeTitleField(event.currentTarget);
+                        }}
+                        placeholder={titlePlaceholder}
+                        rows={1}
+                        onInput={(event) =>
+                          resizeTitleField(event.currentTarget)
+                        }
+                        className="h-auto min-h-12 resize-none overflow-hidden break-words border-0 bg-transparent px-0 py-0 !text-[32px] font-bold leading-tight shadow-none focus-visible:ring-0"
+                      />
+                    </div>
+                    <EditorContent
+                      className="min-h-[calc(100dvh-13rem)] flex-1 min-[1200px]:min-h-[calc(100dvh-10rem)]"
+                      editor={editor}
                     />
-                    <EditorContent className="min-h-full" editor={editor} />
                   </div>
 
                   {slashMenu.open ? (
@@ -1556,6 +1903,102 @@ export function PostEditor({
                           No blocks found
                         </div>
                       )}
+                    </div>
+                  ) : null}
+
+                  {contextMenu.open ? (
+                    <div
+                      className="fixed z-50 w-64 rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                      style={{
+                        top: contextMenu.top,
+                        left: contextMenu.left,
+                      }}
+                    >
+                      {contextCommands.map((command) => (
+                        <button
+                          key={command.title}
+                          type="button"
+                          className="flex h-9 w-full items-center gap-3 rounded-sm px-3 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            runContextCommand(command);
+                          }}
+                        >
+                          <span className="flex size-4 items-center justify-center text-muted-foreground">
+                            {command.icon}
+                          </span>
+                          <span className="font-medium">{command.title}</span>
+                        </button>
+                      ))}
+                      <div className="my-1 h-px bg-border" />
+                      <button
+                        type="button"
+                        className="flex h-9 w-full items-center gap-3 rounded-sm px-3 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          openLinkMenuAt(contextMenu.top, contextMenu.left);
+                          setContextMenu(emptyContextMenu);
+                        }}
+                      >
+                        <span className="flex size-4 items-center justify-center text-muted-foreground">
+                          <LinkIcon className="size-4" />
+                        </span>
+                        <span className="font-medium">Link</span>
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {linkMenu.open ? (
+                    <div
+                      className="fixed z-50 w-80 rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
+                      style={{
+                        top: linkMenu.top,
+                        left: linkMenu.left,
+                      }}
+                    >
+                      <div className="space-y-2">
+                        <Label htmlFor="floating-link-url">URL Link</Label>
+                        <Input
+                          id="floating-link-url"
+                          value={linkUrl}
+                          autoFocus
+                          onChange={(event) => setLinkUrl(event.target.value)}
+                          placeholder="https://example.com"
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              setToolbarLink();
+                            }
+
+                            if (event.key === "Escape") {
+                              event.preventDefault();
+                              setLinkMenu(emptyLinkMenu);
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="mt-3 flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setLinkUrl("");
+                            editor
+                              ?.chain()
+                              .focus()
+                              .extendMarkRange("link")
+                              .unsetLink()
+                              .run();
+                            setLinkMenu(emptyLinkMenu);
+                          }}
+                        >
+                          Remove
+                        </Button>
+                        <Button type="button" size="sm" onClick={setToolbarLink}>
+                          Apply
+                        </Button>
+                      </div>
                     </div>
                   ) : null}
                 </CardContent>
