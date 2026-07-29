@@ -34,7 +34,6 @@ import {
   CheckSquare,
   Code,
   Code2,
-  FileText,
   GripVertical,
   Heading2,
   Heading3,
@@ -42,7 +41,6 @@ import {
   Heading5,
   ImageIcon,
   Italic,
-  LayoutDashboard,
   List,
   ListOrdered,
   LinkIcon,
@@ -55,7 +53,6 @@ import {
   Settings,
   Strikethrough,
   TableIcon,
-  Tags,
   UnderlineIcon,
   Undo2,
 } from "lucide-react";
@@ -91,13 +88,8 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
   SidebarInput,
   SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarProvider,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
@@ -414,18 +406,29 @@ const blockSelectionShortcut = Extension.create({
   },
 });
 
-export function PostEditor() {
-  const [title, setTitle] = useState("");
-  const [slug, setSlug] = useState("");
+type PostEditorProps = {
+  mode?: "add" | "edit";
+  initialTitle?: string;
+  initialSlug?: string;
+  initialContent?: string;
+};
+
+export function PostEditor({
+  mode = "add",
+  initialTitle = "",
+  initialSlug = "",
+  initialContent: initialEditorContent = initialContent,
+}: PostEditorProps) {
+  const isEditMode = mode === "edit";
+  const publishActionLabel = isEditMode ? "Update" : "Publish";
+  const titlePlaceholder = isEditMode ? "Edit judul artikel" : "Judul artikel";
+  const [title, setTitle] = useState(initialTitle);
+  const [slug, setSlug] = useState(initialSlug);
   const [publishDate, setPublishDate] = useState<Date | undefined>();
   const [featuredImage, setFeaturedImage] = useState<string | null>(null);
-  const [htmlDraft, setHtmlDraft] = useState(initialContent);
+  const [htmlDraft, setHtmlDraft] = useState(initialEditorContent);
   const [linkUrl, setLinkUrl] = useState("");
-  const [toolbarScrollState, setToolbarScrollState] = useState({
-    canScrollLeft: false,
-    canScrollRight: false,
-    progress: 0,
-  });
+  const [toolbarScrollProgress, setToolbarScrollProgress] = useState(0);
   const [slashMenu, setSlashMenu] =
     useState<SlashMenuState>(emptySlashMenu);
   const featuredImageInputRef = useRef<HTMLInputElement>(null);
@@ -446,10 +449,14 @@ export function PostEditor() {
 
     const maxScrollLeft = toolbar.scrollWidth - toolbar.clientWidth;
 
-    setToolbarScrollState({
-      canScrollLeft: toolbar.scrollLeft > 1,
-      canScrollRight: toolbar.scrollLeft < maxScrollLeft - 1,
-      progress: maxScrollLeft > 0 ? toolbar.scrollLeft / maxScrollLeft : 0,
+    const progress = maxScrollLeft > 0 ? toolbar.scrollLeft / maxScrollLeft : 0;
+
+    setToolbarScrollProgress((current) => {
+      if (Math.abs(current - progress) < 0.005) {
+        return current;
+      }
+
+      return progress;
     });
   }, []);
 
@@ -659,7 +666,7 @@ export function PostEditor() {
       }),
       blockSelectionShortcut,
     ],
-    content: initialContent,
+    content: initialEditorContent,
     editorProps: {
       attributes: {
         class:
@@ -1205,7 +1212,7 @@ export function PostEditor() {
                     <div
                       className="h-full w-1/3 rounded-full bg-muted-foreground transition-transform"
                       style={{
-                        transform: `translateX(${toolbarScrollState.progress * 200}%)`,
+                        transform: `translateX(${toolbarScrollProgress * 200}%)`,
                       }}
                     />
                   </div>
@@ -1227,7 +1234,7 @@ export function PostEditor() {
                 </Button>
                 <Button type="button" size="sm">
                   <Send />
-                  Publish
+                  {publishActionLabel}
                 </Button>
               </div>
               <div className="min-[1200px]:hidden">
@@ -1388,7 +1395,7 @@ export function PostEditor() {
                     <Input
                       value={title}
                       onChange={(event) => setTitle(event.target.value)}
-                      placeholder="Judul artikel"
+                      placeholder={titlePlaceholder}
                       className="mx-6 mt-10 h-auto min-h-12 border-0 bg-transparent px-0 py-0 !text-[32px] font-bold leading-tight shadow-none focus-visible:ring-0"
                     />
                     <EditorContent className="min-h-full" editor={editor} />
@@ -1442,7 +1449,7 @@ export function PostEditor() {
           </Button>
           <Button type="button" size="sm" className="w-full">
             <Send />
-            Publish
+            {publishActionLabel}
           </Button>
         </div>
       </div>
