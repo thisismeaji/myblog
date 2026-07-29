@@ -92,7 +92,7 @@ const columns: ColumnDef<BlogPost>[] = [
           className="h-auto px-0 text-left text-foreground"
           render={
             <Link
-              href={`/dashboard/post/edit?id=${encodeURIComponent(row.original.id)}`}
+              href={`/post/edit?id=${encodeURIComponent(row.original.id)}`}
             />
           }
         >
@@ -164,13 +164,19 @@ const columns: ColumnDef<BlogPost>[] = [
           <span className="sr-only">Open menu</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-32">
-          <DropdownMenuItem render={<Link href={`/${row.original.slug}`} />}>
+          <DropdownMenuItem
+            render={
+              <Link
+                href={`/post/edit?id=${encodeURIComponent(row.original.id)}`}
+              />
+            }
+          >
             View
           </DropdownMenuItem>
           <DropdownMenuItem
             render={
               <Link
-                href={`/dashboard/post/edit?id=${encodeURIComponent(row.original.id)}`}
+                href={`/post/edit?id=${encodeURIComponent(row.original.id)}`}
               />
             }
           >
@@ -278,7 +284,7 @@ export function PostTable({ data: initialData }: { data: BlogPost[] }) {
           <Button
             size="sm"
             nativeButton={false}
-            render={<Link href="/dashboard/post/add" />}
+            render={<Link href="/post/add" />}
           >
             <PlusIcon />
             <span className="hidden lg:inline">Add Post</span>

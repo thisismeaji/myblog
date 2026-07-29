@@ -27,7 +27,7 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "/dashboard",
+      url: "/",
       icon: (
         <LayoutDashboardIcon
         />
@@ -35,7 +35,7 @@ const data = {
     },
     {
       title: "Post",
-      url: "/dashboard/post",
+      url: "/post",
       icon: (
         <FileTextIcon
         />
@@ -160,7 +160,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               className="data-[slot=sidebar-menu-button]:p-1.5!"
-              render={<Link href="/dashboard" />}
+              render={<Link href="/" />}
             >
               <CommandIcon className="size-5!" />
               <span className="text-base font-semibold">Acme Inc.</span>

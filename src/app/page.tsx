@@ -1,35 +1,21 @@
-import { PostGrid } from "@/components/post-grid";
-import { getCachedPosts } from "@/lib/posts";
+import { ChartAreaInteractive } from "@/components/chart-area-interactive";
+import { DataTable } from "@/components/data-table";
+import { SectionCards } from "@/components/section-cards";
 
-export const revalidate = 86400;
+import data from "./data.json";
 
-export default async function Home() {
-  const posts = await getCachedPosts();
-
+export default function Page() {
   return (
-    <main className="min-h-dvh bg-muted/30 px-4 py-8 md:py-12">
-      <div className="mx-auto w-full max-w-6xl space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold leading-tight">Post Terbaru</h1>
-          <p className="text-muted-foreground">
-            Kumpulan artikel yang sudah dibuat dari dashboard.
-          </p>
+    <div className="flex flex-1 flex-col">
+      <div className="@container/main flex flex-1 flex-col gap-2">
+        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+          <SectionCards />
+          <div className="px-4 lg:px-6">
+            <ChartAreaInteractive />
+          </div>
+          <DataTable data={data} />
         </div>
-        <PostGrid
-          posts={posts.map((post) => ({
-            title: post.title,
-            slug: post.slug,
-            category: post.category,
-            author: post.author,
-            thumbnail: post.featuredImage,
-            createdAt: new Date(post.createdAt).toLocaleDateString("id-ID", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            }),
-          }))}
-        />
       </div>
-    </main>
+    </div>
   );
 }

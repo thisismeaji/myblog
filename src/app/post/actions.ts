@@ -74,9 +74,8 @@ export async function savePost(payload: SavePostPayload): Promise<SavePostResult
     }
 
     updateTag("posts");
-    revalidatePath("/dashboard/post");
-    revalidatePath("/dashboard/post/edit");
-    revalidatePath(`/${savedPost.slug}`);
+    revalidatePath("/post");
+    revalidatePath("/post/edit");
 
     return {
       ok: true,

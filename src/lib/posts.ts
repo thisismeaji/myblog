@@ -42,6 +42,7 @@ export type PostListItem = {
   id: string;
   title: string;
   slug: string;
+  excerpt: string;
   category: string;
   status: PostStatus;
   views: number;
@@ -250,28 +251,6 @@ export async function getPostById(id: string) {
   return mapPost(rows[0]);
 }
 
-export async function getPostBySlug(slug: string) {
-  await ensurePostsTable();
-  const sql = getSql();
-
-  if (!sql) {
-    return null;
-  }
-
-  const rows = await sql`
-    SELECT *
-    FROM posts
-    WHERE slug = ${slug}
-    LIMIT 1
-  `;
-
-  if (!rows[0]) {
-    return null;
-  }
-
-  return mapPost(rows[0]);
-}
-
 export async function getPosts() {
   await ensurePostsTable();
   const sql = getSql();
@@ -285,6 +264,7 @@ export async function getPosts() {
       id,
       title,
       slug,
+      excerpt,
       category,
       status,
       author,
@@ -301,6 +281,7 @@ export async function getPosts() {
     id: String(row.id),
     title: String(row.title),
     slug: String(row.slug),
+    excerpt: String(row.excerpt ?? ""),
     category: String(row.category ?? "uncategorized"),
     status: row.status === "published" ? "published" : "draft",
     views: 0,
@@ -325,15 +306,6 @@ export const getCachedPostById = unstable_cache(getPostById, ["post-by-id"], {
   revalidate: POSTS_CACHE_SECONDS,
   tags: ["posts"],
 });
-
-export const getCachedPostBySlug = unstable_cache(
-  getPostBySlug,
-  ["post-by-slug"],
-  {
-    revalidate: POSTS_CACHE_SECONDS,
-    tags: ["posts"],
-  }
-);
 
 export const getCachedPosts = unstable_cache(getPosts, ["posts"], {
   revalidate: POSTS_CACHE_SECONDS,

@@ -12,8 +12,7 @@ export function DashboardLayoutShell({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
-  const isPostEditor =
-    pathname === "/dashboard/post/add" || pathname === "/dashboard/post/edit";
+  const isPostEditor = pathname === "/post/add" || pathname === "/post/edit";
 
   if (isPostEditor) {
     return <>{children}</>;

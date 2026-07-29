@@ -1291,7 +1291,7 @@ export function PostEditor({
   }
 
   function goBackToPosts() {
-    router.push("/dashboard/post");
+    router.push("/post");
   }
 
   return (

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { TopLoadingBar } from "@/components/top-loading-bar";
+import { DashboardLayoutShell } from "@/components/dashboard-layout-shell";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
@@ -35,7 +36,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <TopLoadingBar />
-        <TooltipProvider>{children}</TooltipProvider>
+        <TooltipProvider>
+          <DashboardLayoutShell>{children}</DashboardLayoutShell>
+        </TooltipProvider>
         <Toaster />
       </body>
     </html>
