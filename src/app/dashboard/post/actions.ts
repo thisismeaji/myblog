@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 import {
   createPost,
@@ -73,7 +73,7 @@ export async function savePost(payload: SavePostPayload): Promise<SavePostResult
       };
     }
 
-    revalidatePath("/dashboard/post/add");
+    revalidateTag("posts", "max");
     revalidatePath("/dashboard/post/edit");
 
     return {

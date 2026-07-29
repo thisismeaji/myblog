@@ -8,6 +8,7 @@ import {
   useState,
   useTransition,
 } from "react";
+import { useRouter } from "next/navigation";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -102,7 +103,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
-import { savePost, type SavePostResult } from "../actions";
+import { savePost } from "../actions";
 
 const initialContent = `
   <p>Ketik / untuk memilih format seperti heading, paragraph, list, atau quote. Tekan Enter untuk membuat blok baru, lalu geser handle di kiri blok untuk mengatur urutannya.</p>
@@ -449,6 +450,7 @@ export function PostEditor({
   initialSchemaType = "article",
 }: PostEditorProps) {
   const isEditMode = mode === "edit";
+  const router = useRouter();
   const publishActionLabel = isEditMode ? "Update" : "Publish";
   const titlePlaceholder = isEditMode ? "Edit judul artikel" : "Judul artikel";
   const [title, setTitle] = useState(initialTitle);
@@ -467,7 +469,6 @@ export function PostEditor({
   const [schemaType, setSchemaType] = useState(initialSchemaType);
   const [htmlDraft, setHtmlDraft] = useState(initialEditorContent);
   const [linkUrl, setLinkUrl] = useState("");
-  const [saveResult, setSaveResult] = useState<SavePostResult | null>(null);
   const [isPending, startTransition] = useTransition();
   const [toolbarScrollProgress, setToolbarScrollProgress] = useState(0);
   const [slashMenu, setSlashMenu] =
@@ -888,8 +889,6 @@ export function PostEditor({
   }
 
   function submitPost(status: "draft" | "published") {
-    setSaveResult(null);
-
     startTransition(async () => {
       const result = await savePost({
         id: postId,
@@ -908,14 +907,21 @@ export function PostEditor({
         schemaType,
       });
 
-      setSaveResult(result);
-
       if (result.ok) {
         toast.success(result.message);
       } else {
         toast.error(result.message);
       }
     });
+  }
+
+  function handleSecondaryAction() {
+    if (isEditMode) {
+      router.push("/dashboard/post");
+      return;
+    }
+
+    submitPost("draft");
   }
 
   return (
@@ -1329,10 +1335,10 @@ export function PostEditor({
                   variant="outline"
                   size="sm"
                   disabled={isPending}
-                  onClick={() => submitPost("draft")}
+                  onClick={handleSecondaryAction}
                 >
-                  <Save />
-                  Simpan Draft
+                  {isEditMode ? <ChevronLeft /> : <Save />}
+                  {isEditMode ? "Kembali" : "Simpan Draft"}
                 </Button>
                 <Button
                   type="button"
@@ -1493,15 +1499,6 @@ export function PostEditor({
               </div>
             </div>
 
-            {saveResult ? (
-              <div
-                className="rounded-md border bg-background px-3 py-2 text-sm"
-                role="status"
-              >
-                {saveResult.message}
-              </div>
-            ) : null}
-
             <ScrollArea className="min-h-0 flex-1">
               <Card className="flex min-h-full border border-border py-0 shadow-none ring-0">
                 <CardContent className="flex min-h-full w-full flex-col p-0">
@@ -1576,10 +1573,10 @@ export function PostEditor({
             size="sm"
             className="w-full"
             disabled={isPending}
-            onClick={() => submitPost("draft")}
+            onClick={handleSecondaryAction}
           >
-            <Save />
-            Simpan Draft
+            {isEditMode ? <ChevronLeft /> : <Save />}
+            {isEditMode ? "Kembali" : "Simpan Draft"}
           </Button>
           <Button
             type="button"

@@ -1,14 +1,19 @@
 import { PostEditorLoader } from "../add/post-editor-loader";
-import { getLatestPost } from "@/lib/posts";
+import { getCachedLatestPost, getCachedPostById } from "@/lib/posts";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 const editContent = `
   <p>Belum ada post di database. Tulis konten baru, lalu simpan untuk menghubungkan halaman edit dengan Neon.</p>
 `;
 
-export default async function EditPostPage() {
-  const post = await getLatestPost();
+export default async function EditPostPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ id?: string }>;
+}) {
+  const { id } = await searchParams;
+  const post = id ? await getCachedPostById(id) : await getCachedLatestPost();
 
   return (
     <PostEditorLoader
