@@ -1,15 +1,18 @@
 import { neon } from "@neondatabase/serverless";
 import { unstable_cache } from "next/cache";
 
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is not configured.");
-}
-
-const sql = neon(databaseUrl);
 let postsTableReady: Promise<void> | null = null;
 const POSTS_CACHE_SECONDS = 86400;
+
+function getSql() {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    return null;
+  }
+
+  return neon(databaseUrl);
+}
 
 export type PostStatus = "draft" | "published";
 
@@ -50,6 +53,12 @@ export type PostListItem = {
 };
 
 async function ensurePostsTable() {
+  const sql = getSql();
+
+  if (!sql) {
+    return;
+  }
+
   postsTableReady ??= (async () => {
     await sql`
       CREATE TABLE IF NOT EXISTS posts (
@@ -113,6 +122,11 @@ function mapPost(row: Record<string, unknown>): PostRecord {
 
 export async function createPost(input: PostInput) {
   await ensurePostsTable();
+  const sql = getSql();
+
+  if (!sql) {
+    throw new Error("DATABASE_URL is not configured.");
+  }
 
   const rows = await sql`
     INSERT INTO posts (
@@ -157,6 +171,11 @@ export async function createPost(input: PostInput) {
 
 export async function updatePost(id: string, input: PostInput) {
   await ensurePostsTable();
+  const sql = getSql();
+
+  if (!sql) {
+    throw new Error("DATABASE_URL is not configured.");
+  }
 
   const rows = await sql`
     UPDATE posts
@@ -189,6 +208,11 @@ export async function updatePost(id: string, input: PostInput) {
 
 export async function getLatestPost() {
   await ensurePostsTable();
+  const sql = getSql();
+
+  if (!sql) {
+    return null;
+  }
 
   const rows = await sql`
     SELECT *
@@ -206,6 +230,11 @@ export async function getLatestPost() {
 
 export async function getPostById(id: string) {
   await ensurePostsTable();
+  const sql = getSql();
+
+  if (!sql) {
+    return null;
+  }
 
   const rows = await sql`
     SELECT *
@@ -223,6 +252,11 @@ export async function getPostById(id: string) {
 
 export async function getPosts() {
   await ensurePostsTable();
+  const sql = getSql();
+
+  if (!sql) {
+    return [];
+  }
 
   const rows = await sql`
     SELECT
