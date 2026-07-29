@@ -1290,13 +1290,8 @@ export function PostEditor({
     });
   }
 
-  function handleSecondaryAction() {
-    if (isEditMode) {
-      router.push("/dashboard/post");
-      return;
-    }
-
-    submitPost("draft");
+  function goBackToPosts() {
+    router.push("/dashboard/post");
   }
 
   return (
@@ -1458,12 +1453,11 @@ export function PostEditor({
                   </Sheet>
                 </div>
               </div>
-              <div className="grid min-w-0 grid-cols-[1.75rem_minmax(0,1fr)_1.75rem] items-center gap-1 min-[1200px]:grid-cols-[minmax(0,1fr)]">
+              <div className="grid min-w-0 grid-cols-[1.75rem_minmax(0,1fr)_1.75rem] items-center gap-1">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="min-[1200px]:hidden"
                   onClick={() => scrollToolbar("left")}
                 >
                   <ChevronLeft />
@@ -1651,6 +1645,21 @@ export function PostEditor({
               >
                 <ImageIcon />
               </ToolbarIconButton>
+              {!isEditMode ? (
+                <>
+                  <Separator orientation="vertical" className="mx-1 h-7" />
+                  <ToolbarIconButton
+                    label="Simpan Draft"
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={isPending}
+                    onClick={() => submitPost("draft")}
+                  >
+                    <Save />
+                  </ToolbarIconButton>
+                </>
+              ) : null}
                     </div>
                   </div>
                   <div className="mx-1 mt-1 h-1 rounded-full bg-border min-[1200px]:hidden">
@@ -1666,7 +1675,6 @@ export function PostEditor({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="min-[1200px]:hidden"
                   onClick={() => scrollToolbar("right")}
                 >
                   <ChevronRight />
@@ -1678,10 +1686,10 @@ export function PostEditor({
                   variant="outline"
                   size="sm"
                   disabled={isPending}
-                  onClick={handleSecondaryAction}
+                  onClick={goBackToPosts}
                 >
-                  {isEditMode ? <ChevronLeft /> : <Save />}
-                  {isEditMode ? "Kembali" : "Simpan Draft"}
+                  <ChevronLeft />
+                  Kembali
                 </Button>
                 <Button
                   type="button"
@@ -2009,18 +2017,36 @@ export function PostEditor({
       </SidebarInset>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background p-4 min-[1200px]:hidden">
-        <div className="grid grid-cols-2 gap-2">
+        <div
+          className={
+            isEditMode
+              ? "grid grid-cols-2 gap-2"
+              : "grid grid-cols-[1fr_auto_1fr] gap-2"
+          }
+        >
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="w-full"
             disabled={isPending}
-            onClick={handleSecondaryAction}
+            onClick={goBackToPosts}
           >
-            {isEditMode ? <ChevronLeft /> : <Save />}
-            {isEditMode ? "Kembali" : "Simpan Draft"}
+            <ChevronLeft />
+            Kembali
           </Button>
+          {!isEditMode ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              disabled={isPending}
+              onClick={() => submitPost("draft")}
+            >
+              <Save />
+              <span className="sr-only">Simpan Draft</span>
+            </Button>
+          ) : null}
           <Button
             type="button"
             size="sm"
